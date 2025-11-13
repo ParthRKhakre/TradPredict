@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import io
-from model import load_data, DRLTradingModel # Assuming model.py is in the same directory
+from model import load_data, DRLTradingModel 
 import time # For simulating a professional loading delay
 
 # --- 0. Configuration and Helper Functions ---
@@ -11,9 +11,6 @@ import time # For simulating a professional loading delay
 def load_css():
     st.markdown("""
     <style>
-        /* Custom Font and Background (Optional - requires font files) */
-        /* body { font-family: 'Roboto', sans-serif; } */
-        
         /* Main App Background and Layout */
         .main {
             padding-top: 2rem;
@@ -81,7 +78,9 @@ def instantiate_model(data, initial_capital):
 # --- 1. Main Application Function ---
 
 def main():
-    st.set_page_config(layout="wide", page_title="DRL Quantum Trade Engine", initial_sidebar_state="expanded")
+    # FIX: Removed initial_sidebar_state="expanded" to prevent conflict with user's hide preference.
+    # The user can now always recover the sidebar via the hamburger menu.
+    st.set_page_config(layout="wide", page_title="DRL Quantum Trade Engine")
     
     # Apply custom CSS
     load_css()
@@ -90,12 +89,11 @@ def main():
     professional_header()
 
     # --- Sidebar: Input/Configuration (Phase 1: Data Upload) ---
-    # Use the context manager for a cleaner sidebar definition
     with st.sidebar:
         st.header("⚙️ Configuration")
         st.subheader("Data Source")
         
-        uploaded_file = st.file_uploader( # st.file_uploader is used directly inside the context
+        uploaded_file = st.file_uploader( 
             "Upload Nifty 50 Snapshot CSV",
             type=['csv'],
             key="data_uploader",
@@ -105,7 +103,6 @@ def main():
     # --- Data Validation Check (Main body warning) ---
     if uploaded_file is None:
         st.warning("The DRL Engine requires stock data to operate. Please upload a CSV file in the sidebar to activate the system parameters.")
-        # We stop the script here. No parameters or results will be calculated/rendered.
         st.stop()
         
     # --- Data Loading (Script continues only if file is uploaded) ---
@@ -121,7 +118,7 @@ def main():
     with st.sidebar:
         st.subheader("Trade Parameters")
         
-        initial_capital = st.number_input( # st.number_input is used directly inside the context
+        initial_capital = st.number_input( 
             "Initial Portfolio Capital (₹)",
             min_value=100000,
             max_value=10000000,
@@ -135,7 +132,7 @@ def main():
         available_symbols = sorted(drl_model.df['Symbol'].unique())
         
         # Stock Selection
-        selected_symbol = st.selectbox( # st.selectbox is used directly inside the context
+        selected_symbol = st.selectbox(
             "Select Stock for Autonomous Trading",
             options=available_symbols,
             index=available_symbols.index('RELIANCE') if 'RELIANCE' in available_symbols else 0,
@@ -178,7 +175,7 @@ def main():
                 st.metric(
                     "Autonomous Signal", 
                     metrics['Final_Signal'], 
-                    delta_color="off" # Color handled by CSS success/warning styling
+                    delta_color="off" 
                 )
             
             with col_score:
@@ -199,7 +196,7 @@ def main():
                 st.metric("Current LTP (₹)", f"₹ {metrics['LTP']:,.2f}")
             
             with col_trend:
-                # Use a progress bar to visualize the 365d trend (Model Performance/Context)
+                # Display 1-Year and 30-Day Trends
                 trend_pct = metrics['365d % Chng']
                 st.metric(
                     "1-Year Trend %", 
