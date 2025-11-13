@@ -76,7 +76,6 @@ def professional_header():
 @st.cache_resource(ttl=3600)
 def instantiate_model(data, initial_capital):
     """Initializes the DRL Model with caching."""
-    # Ensure data is deep-copied to prevent mutation by Streamlit or model
     return DRLTradingModel(data.copy(), initial_capital)
 
 # --- 1. Main Application Function ---
@@ -90,23 +89,26 @@ def main():
     # Custom Branded Header
     professional_header()
 
-    # --- Sidebar: Input/Configuration ---
-    st.sidebar.header("⚙️ Configuration")
-    
-    # 1. Data Upload/Configuration
-    st.sidebar.subheader("Data Source")
-    uploaded_file = st.sidebar.file_uploader(
-        "Upload Nifty 50 Snapshot CSV",
-        type=['csv'],
-        key="data_uploader",
-        help="The CSV must contain 'Symbol', 'LTP', '30 d % chng', and '365 d % chng' columns."
-    )
+    # --- Sidebar: Input/Configuration (Phase 1: Data Upload) ---
+    # Use the context manager for a cleaner sidebar definition
+    with st.sidebar:
+        st.header("⚙️ Configuration")
+        st.subheader("Data Source")
+        
+        uploaded_file = st.file_uploader( # st.file_uploader is used directly inside the context
+            "Upload Nifty 50 Snapshot CSV",
+            type=['csv'],
+            key="data_uploader",
+            help="The CSV must contain 'Symbol', 'LTP', '30 d % chng', and '365 d % chng' columns."
+        )
 
+    # --- Data Validation Check (Main body warning) ---
     if uploaded_file is None:
-        st.warning("👈 Please upload a data file in the sidebar to activate the system.")
+        st.warning("The DRL Engine requires stock data to operate. Please upload a CSV file in the sidebar to activate the system parameters.")
+        # We stop the script here. No parameters or results will be calculated/rendered.
         st.stop()
         
-    # Data Loading (with error handling and caching potential)
+    # --- Data Loading (Script continues only if file is uploaded) ---
     with st.spinner("Processing uploaded data..."):
         try:
             uploaded_file_content = uploaded_file.getvalue()
@@ -114,37 +116,40 @@ def main():
         except Exception as e:
             st.error(f"Data Processing Error: Could not load or parse the file. Details: {e}")
             st.stop()
+            
+    # --- Sidebar: Input/Configuration (Phase 2: Parameters, rendered AFTER data is loaded) ---
+    with st.sidebar:
+        st.subheader("Trade Parameters")
+        
+        initial_capital = st.number_input( # st.number_input is used directly inside the context
+            "Initial Portfolio Capital (₹)",
+            min_value=100000,
+            max_value=10000000,
+            value=1000000,
+            step=100000,
+            format="%d"
+        )
 
-    # 2. System Parameters
-    st.sidebar.subheader("Trade Parameters")
-    initial_capital = st.sidebar.number_input(
-        "Initial Portfolio Capital (₹)",
-        min_value=100000,
-        max_value=10000000,
-        value=1000000,
-        step=100000,
-        format="%d"
-    )
+        # Instantiate the cached model
+        drl_model = instantiate_model(data, initial_capital)
+        available_symbols = sorted(drl_model.df['Symbol'].unique())
+        
+        # Stock Selection
+        selected_symbol = st.selectbox( # st.selectbox is used directly inside the context
+            "Select Stock for Autonomous Trading",
+            options=available_symbols,
+            index=available_symbols.index('RELIANCE') if 'RELIANCE' in available_symbols else 0,
+            help="The DRL agent will run its policy against this stock's data."
+        )
+        
+        st.markdown("---")
+        
+        # --- Execute Button ---
+        if st.button("▶️ RUN DRL SIMULATION", type="primary", use_container_width=True):
+            st.session_state['run_simulation'] = True
+        
+        st.markdown(f"**Loaded {len(data)} Stock Records.**")
 
-    # Instantiate the cached model
-    drl_model = instantiate_model(data, initial_capital)
-    available_symbols = sorted(drl_model.df['Symbol'].unique())
-    
-    # Stock Selection
-    selected_symbol = st.sidebar.selectbox(
-        "Select Stock for Autonomous Trading",
-        options=available_symbols,
-        index=available_symbols.index('RELIANCE') if 'RELIANCE' in available_symbols else 0,
-        help="The DRL agent will run its policy against this stock's data."
-    )
-    
-    st.sidebar.markdown("---")
-    
-    # --- Execute Button ---
-    if st.sidebar.button("▶️ RUN DRL SIMULATION", type="primary", use_container_width=True):
-        st.session_state['run_simulation'] = True
-    
-    st.sidebar.markdown(f"**Loaded {len(data)} Stock Records.**")
 
     # --- 2. Main Content Area: Results Display ---
     
